@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roblox Injector</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+    font-family:'Orbitron',sans-serif;
+    background:#020617;
+    color:white;
+    overflow-x:hidden;
+}
+
+#bg{
+    position:fixed;
+    width:100%;
+    height:100%;
+    z-index:-1;
+}
+
+header{
+    position:fixed;
+    width:100%;
+    padding:25px 60px;
+    background:rgba(2,6,23,0.7);
+    backdrop-filter:blur(12px);
+}
+
+.logo{
+    font-size:30px;
+    color:#38bdf8;
+    text-shadow:0 0 25px #38bdf8;
+}
+
+section{
+    min-height:85vh;
+    padding:90px 20px;
+    text-align:center;
+}
+
+/* HERO */
+.hero h1{
+    font-size:110px;
+    color:#38bdf8;
+    text-shadow:0 0 50px #0ea5e9;
+}
+
+.hero p{
+    margin-top:25px;
+    font-size:22px;
+    color:#94a3b8;
+}
+
+/* КНОПКИ В РЯД */
+.btn-group{
+    display:flex;
+    justify-content:center;
+    gap:25px;
+    margin-top:50px;
+    flex-wrap:wrap;
+}
+
+/* ОБЩАЯ КНОПКА */
+.btn{
+    padding:22px 60px;
+    border-radius:18px;
+    font-size:20px;
+    font-weight:bold;
+    text-decoration:none;
+    transition:.3s;
+}
+
+/* СКАЧАТЬ */
+.btn-download{
+    background:linear-gradient(135deg,#0ea5e9,#38bdf8);
+    color:black;
+    box-shadow:0 0 40px #0ea5e9;
+}
+
+.btn-download:hover{
+    transform:scale(1.12);
+    box-shadow:0 0 80px #38bdf8;
+}
+
+/* TELEGRAM */
+.btn-tg{
+    background:transparent;
+    border:2px solid #38bdf8;
+    color:#38bdf8;
+    box-shadow:0 0 20px #38bdf8 inset;
+}
+
+.btn-tg:hover{
+    background:#38bdf8;
+    color:black;
+    transform:scale(1.12);
+    box-shadow:0 0 60px #38bdf8;
+}
+
+h2{
+    font-size:55px;
+    color:#38bdf8;
+}
+
+.features{
+    display:flex;
+    justify-content:center;
+    gap:25px;
+    flex-wrap:wrap;
+    margin-top:40px;
+}
+
+.card{
+    width:320px;
+    padding:35px;
+    font-size:20px;
+    background:rgba(255,255,255,0.06);
+    border-radius:20px;
+    backdrop-filter:blur(12px);
+    transition:.4s;
+    opacity:0;
+    transform:translateY(40px);
+}
+
+.card.show{
+    opacity:1;
+    transform:translateY(0);
+}
+
+.card:hover{
+    transform:translateY(-15px) scale(1.05);
+    box-shadow:0 0 35px #38bdf8;
+}
+
+.text-block{
+    max-width:900px;
+    margin:25px auto;
+    font-size:20px;
+    color:#cbd5f5;
+    opacity:0;
+    transform:translateY(40px);
+    transition:.6s;
+}
+
+.text-block.show{
+    opacity:1;
+    transform:translateY(0);
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="bg"></canvas>
+
+<header>
+    <div class="logo">MAGIC INJECTOR</div>
+</header>
+
+<section class="hero">
+    <h1>ROBLOX INJECTOR</h1>
+    <p>Современный инжектор нового поколения, тебе он точно зайдет!</p>
+
+    <div class="btn-group">
+        <a href="https://YOUR-DOWNLOAD-LINK.com" class="btn btn-download">СКАЧАТЬ</a>
+        <a href="https://t.me/YOUR_TELEGRAM" target="_blank" class="btn btn-tg">TELEGRAM</a>
+    </div>
+</section>
+
+<section>
+    <h2>Преимущества</h2>
+    <div class="features">
+        <div class="card">⚡ Максимальная скорость</div>
+        <div class="card">🔒 Стабильная работа</div>
+        <div class="card">🎯 Удобство использования</div>
+    </div>
+</section>
+
+<script>
+// ДОЖДЬ
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let rain = [];
+
+for(let i=0;i<140;i++){
+    rain.push({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        l: Math.random()*25+15,
+        s: Math.random()*4+2
+    });
+}
+
+function draw(){
+    ctx.fillStyle="rgba(2,6,23,0.25)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.strokeStyle="#38bdf8";
+    rain.forEach(r=>{
+        ctx.beginPath();
+        ctx.moveTo(r.x,r.y);
+        ctx.lineTo(r.x,r.y+r.l);
+        ctx.stroke();
+        r.y+=r.s;
+
+        if(r.y>canvas.height){
+            r.y=-20;
+            r.x=Math.random()*canvas.width;
+        }
+    });
+
+    requestAnimationFrame(draw);
+}
+draw();
+
+// СКРОЛЛ
+const observer = new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+        if(entry.isIntersecting){
+            entry.target.classList.add('show');
+        }
+    });
+});
+
+document.querySelectorAll('.card, .text-block').forEach(el=>{
+    observer.observe(el);
+});
+</script>
+
+</body>
+</html>
