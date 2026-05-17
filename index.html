@@ -3,239 +3,965 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Roblox Injector</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-
+<title>CRYSTAL BLAST</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap');
 
-body{
-    font-family:'Orbitron',sans-serif;
-    background:#020617;
-    color:white;
-    overflow-x:hidden;
-}
+  :root {
+    --bg: #050a12;
+    --panel: rgba(10,20,40,0.85);
+    --border: rgba(0,200,255,0.15);
+    --glow-cyan: #00d4ff;
+    --glow-purple: #9b59ff;
+    --glow-pink: #ff3dac;
+    --glow-green: #00ff9d;
+    --glow-orange: #ff8c00;
+    --glow-yellow: #ffe600;
+    --cell-empty: rgba(255,255,255,0.03);
+    --cell-border: rgba(0,200,255,0.07);
+  }
 
-#bg{
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: #e0f0ff;
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    display: block;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body.dragging, body.dragging * { cursor: none !important; }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%, rgba(0,150,255,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 80% 70%, rgba(155,89,255,0.07) 0%, transparent 70%);
+    pointer-events:none; z-index:0;
+  }
+
+  .grid-bg {
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,200,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.04) 1px, transparent 1px);
+    background-size:40px 40px;
+    pointer-events:none; z-index:0;
+  }
+
+  .wrapper {
+    position:relative; z-index:1;
+    width:100%; max-width:500px;
+    padding:16px;
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+  }
+
+  .header { width:100%; text-align:center; padding-top:8px; }
+
+  .logo {
+    font-family:'Orbitron',monospace; font-weight:900;
+    font-size:clamp(24px,7vw,40px); letter-spacing:6px;
+    background:linear-gradient(135deg, var(--glow-cyan), var(--glow-purple), var(--glow-pink));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    filter:drop-shadow(0 0 20px rgba(0,212,255,0.4));
+  }
+
+  .tagline { font-size:10px; letter-spacing:4px; text-transform:uppercase; color:rgba(0,212,255,0.4); margin-top:4px; }
+
+  .scores-row { width:100%; display:flex; gap:10px; }
+
+  .score-card {
+    flex:1; background:var(--panel); border:1px solid var(--border);
+    border-radius:12px; padding:10px 14px; text-align:center;
+    position:relative; overflow:hidden; backdrop-filter:blur(10px);
+  }
+  .score-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, var(--glow-cyan), transparent);
+  }
+  .score-card.best::before { background:linear-gradient(90deg, transparent, var(--glow-purple), transparent); }
+  .score-label { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:rgba(0,212,255,0.5); margin-bottom:3px; }
+  .score-card.best .score-label { color:rgba(155,89,255,0.6); }
+  .score-value {
+    font-family:'Orbitron',monospace; font-size:clamp(18px,5vw,26px); font-weight:700;
+    color:var(--glow-cyan); text-shadow:0 0 15px currentColor;
+  }
+  .score-card.best .score-value { color:var(--glow-purple); }
+  .score-value.bump { animation:scoreBump 0.4s ease; }
+  @keyframes scoreBump { 0%{transform:scale(1)} 50%{transform:scale(1.25);filter:brightness(1.5)} 100%{transform:scale(1)} }
+
+  .chain-bar { width:100%; height:5px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden; border:1px solid var(--border); }
+  .chain-fill { height:100%; border-radius:3px; width:0%; background:linear-gradient(90deg, var(--glow-cyan), var(--glow-purple), var(--glow-pink)); box-shadow:0 0 10px rgba(0,212,255,0.5); transition:width 0.4s ease; }
+
+  .board-container { width:100%; position:relative; }
+  .board-glow { position:absolute; inset:-20px; background:radial-gradient(ellipse at center, rgba(0,150,255,0.08), transparent 70%); pointer-events:none; }
+
+  #board {
+    width:100%; aspect-ratio:1;
+    display:grid;
+    grid-template-columns:repeat(9,1fr);
+    grid-template-rows:repeat(9,1fr);
+    gap:2px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:8px;
+    backdrop-filter:blur(10px);
+    position:relative; overflow:hidden;
+  }
+  #board::before {
+    content:''; position:absolute; inset:0; border-radius:16px;
+    background:linear-gradient(135deg, rgba(0,200,255,0.04) 0%, transparent 50%, rgba(155,89,255,0.04) 100%);
+    pointer-events:none;
+  }
+
+  .cell {
+    border-radius:4px;
+    background:var(--cell-empty);
+    border:1px solid var(--cell-border);
+    position:relative; overflow:hidden;
+    transition:transform 0.1s, filter 0.1s;
+  }
+  .cell.filled { border:none; }
+  .cell.filled::after {
+    content:''; position:absolute;
+    top:15%; left:15%; width:35%; height:30%;
+    background:rgba(255,255,255,0.28); border-radius:50%; filter:blur(2px);
+  }
+
+  .c1{background:linear-gradient(145deg,#00d4ff,#0080cc);box-shadow:0 0 8px rgba(0,212,255,0.5),inset 0 1px 0 rgba(255,255,255,0.3);}
+  .c2{background:linear-gradient(145deg,#9b59ff,#6020cc);box-shadow:0 0 8px rgba(155,89,255,0.5),inset 0 1px 0 rgba(255,255,255,0.3);}
+  .c3{background:linear-gradient(145deg,#ff3dac,#cc1080);box-shadow:0 0 8px rgba(255,61,172,0.5),inset 0 1px 0 rgba(255,255,255,0.3);}
+  .c4{background:linear-gradient(145deg,#00ff9d,#00b870);box-shadow:0 0 8px rgba(0,255,157,0.5),inset 0 1px 0 rgba(255,255,255,0.3);}
+  .c5{background:linear-gradient(145deg,#ff8c00,#cc5500);box-shadow:0 0 8px rgba(255,140,0,0.5),inset 0 1px 0 rgba(255,255,255,0.3);}
+  .c6{background:linear-gradient(145deg,#ffe600,#cc9900);box-shadow:0 0 8px rgba(255,230,0,0.5),inset 0 1px 0 rgba(255,255,255,0.3);}
+
+  .cell.hl-valid {
+    background:rgba(0,212,255,0.22) !important;
+    border:1px solid rgba(0,212,255,0.65) !important;
+    box-shadow:inset 0 0 8px rgba(0,212,255,0.3) !important;
+    transform:scale(1.05); z-index:2;
+  }
+  .cell.hl-invalid {
+    background:rgba(255,60,60,0.22) !important;
+    border:1px solid rgba(255,60,60,0.55) !important;
+  }
+  .cell.hl-overlay {
+    filter:brightness(1.5) !important;
+    transform:scale(1.06) !important; z-index:2;
+  }
+  .cell.clearing { animation:clearCell 0.45s ease forwards; }
+  @keyframes clearCell {
+    0%{transform:scale(1);opacity:1}
+    40%{transform:scale(1.15);filter:brightness(2.5)}
+    100%{transform:scale(0);opacity:0}
+  }
+
+  .pieces-area {
+    width:100%; display:flex; justify-content:space-around; align-items:center;
+    gap:6px; padding:12px 6px; min-height:120px;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:16px; backdrop-filter:blur(10px); position:relative;
+  }
+  .pieces-area::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(0,212,255,0.25),transparent);
+  }
+
+  .piece-slot {
+    flex:1; display:flex; align-items:center; justify-content:center;
+    border-radius:10px; padding:8px; min-height:90px;
+    cursor:grab; user-select:none; touch-action:none;
+    transition:background 0.2s, transform 0.15s;
+  }
+  .piece-slot:hover:not(.used) { background:rgba(0,212,255,0.05); transform:scale(1.04); }
+  .piece-slot.grabbing { transform:scale(0.92); opacity:0.5; }
+  .piece-slot.used { opacity:0.15; pointer-events:none; }
+
+  .p-grid { display:grid; gap:2px; }
+  .p-cell { border-radius:3px; position:relative; overflow:hidden; }
+  .p-cell.empty { opacity:0; }
+  .p-cell.filled::after {
+    content:''; position:absolute;
+    top:15%; left:15%; width:35%; height:30%;
+    background:rgba(255,255,255,0.28); border-radius:50%; filter:blur(2px);
+  }
+
+  /* GHOST — fixed overlay */
+  #ghost {
     position:fixed;
-    width:100%;
-    height:100%;
-    z-index:-1;
-}
+    pointer-events:none;
+    z-index:9999;
+    display:none;
+    opacity:0.88;
+    filter:drop-shadow(0 6px 20px rgba(0,0,0,0.6));
+    transition: none;
+  }
+  #ghost .p-grid { gap:2px; }
+  #ghost .p-cell { border-radius:4px; position:relative; overflow:hidden; }
+  #ghost .p-cell.filled::after {
+    content:''; position:absolute;
+    top:15%; left:15%; width:35%; height:30%;
+    background:rgba(255,255,255,0.28); border-radius:50%; filter:blur(2px);
+  }
 
-header{
-    position:fixed;
-    width:100%;
-    padding:25px 60px;
-    background:rgba(2,6,23,0.7);
-    backdrop-filter:blur(12px);
-}
+  .combo-pop {
+    position:fixed; pointer-events:none;
+    font-family:'Orbitron',monospace; font-weight:900;
+    font-size:28px; color:var(--glow-yellow);
+    text-shadow:0 0 30px currentColor;
+    z-index:1000; animation:comboAnim 1s ease forwards;
+    transform:translate(-50%,-50%);
+  }
+  @keyframes comboAnim {
+    0%{opacity:1;transform:translate(-50%,-50%) scale(0.6)}
+    30%{opacity:1;transform:translate(-50%,-80%) scale(1.3)}
+    100%{opacity:0;transform:translate(-50%,-150%) scale(1)}
+  }
 
-.logo{
-    font-size:30px;
-    color:#38bdf8;
-    text-shadow:0 0 25px #38bdf8;
-}
+  .particle {
+    position:fixed; pointer-events:none; border-radius:50%; z-index:500;
+    animation:pfly 0.7s ease forwards;
+  }
+  @keyframes pfly {
+    0%{transform:translate(0,0) scale(1);opacity:1}
+    100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}
+  }
 
-section{
-    min-height:85vh;
-    padding:90px 20px;
-    text-align:center;
-}
+  .overlay { display:none; position:fixed; inset:0; background:rgba(5,10,18,0.92); z-index:100; align-items:center; justify-content:center; backdrop-filter:blur(10px); }
+  .overlay.show { display:flex; }
 
-/* HERO */
-.hero h1{
-    font-size:110px;
-    color:#38bdf8;
-    text-shadow:0 0 50px #0ea5e9;
-}
+  .over-card {
+    background:var(--panel); border:1px solid rgba(0,212,255,0.3);
+    border-radius:24px; padding:40px 48px; text-align:center;
+    position:relative; overflow:hidden; max-width:330px; width:90%;
+  }
+  .over-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, var(--glow-cyan), var(--glow-purple), var(--glow-pink)); }
+  .over-title { font-family:'Orbitron',monospace; font-size:26px; font-weight:900; letter-spacing:3px; background:linear-gradient(135deg, var(--glow-pink), var(--glow-purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:6px; }
+  .over-sub { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-bottom:28px; }
+  .over-lbl { font-size:9px; letter-spacing:4px; text-transform:uppercase; color:rgba(0,212,255,0.5); margin-bottom:4px; }
+  .over-lbl.b { color:rgba(155,89,255,0.5); }
+  .over-score-val { font-family:'Orbitron',monospace; font-size:42px; font-weight:900; color:var(--glow-cyan); text-shadow:0 0 30px currentColor; margin-bottom:16px; }
+  .over-best-val { font-family:'Orbitron',monospace; font-size:24px; font-weight:700; color:var(--glow-purple); text-shadow:0 0 20px currentColor; margin-bottom:28px; }
+  .new-record { font-size:10px; letter-spacing:4px; text-transform:uppercase; color:var(--glow-yellow); text-shadow:0 0 15px currentColor; margin-bottom:14px; animation:blink 1s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-.hero p{
-    margin-top:25px;
-    font-size:22px;
-    color:#94a3b8;
-}
+  .btn-restart {
+    font-family:'Orbitron',monospace; font-size:13px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase;
+    color:#050a12; background:linear-gradient(135deg, var(--glow-cyan), var(--glow-purple));
+    border:none; border-radius:50px; padding:14px 38px;
+    cursor:pointer; transition:all 0.3s;
+  }
+  .btn-restart:hover { transform:scale(1.06); box-shadow:0 0 30px rgba(0,212,255,0.4); }
 
-/* КНОПКИ В РЯД */
-.btn-group{
-    display:flex;
-    justify-content:center;
-    gap:25px;
-    margin-top:50px;
-    flex-wrap:wrap;
-}
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)} }
 
-/* ОБЩАЯ КНОПКА */
-.btn{
-    padding:22px 60px;
-    border-radius:18px;
-    font-size:20px;
-    font-weight:bold;
-    text-decoration:none;
-    transition:.3s;
-}
+  /* ── SIDEBAR LAYOUT ──────────────────────────────────── */
+  .page-layout {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
 
-/* СКАЧАТЬ */
-.btn-download{
-    background:linear-gradient(135deg,#0ea5e9,#38bdf8);
-    color:black;
-    box-shadow:0 0 40px #0ea5e9;
-}
+  .sidebar {
+    width: 360px;
+    flex-shrink: 0;
+    padding: 20px 14px;
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
 
-.btn-download:hover{
-    transform:scale(1.12);
-    box-shadow:0 0 80px #38bdf8;
-}
+  .sidebar-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(0,212,255,0.3);
+    text-align: center;
+    margin-bottom: 2px;
+  }
 
-/* TELEGRAM */
-.btn-tg{
-    background:transparent;
-    border:2px solid #38bdf8;
-    color:#38bdf8;
-    box-shadow:0 0 20px #38bdf8 inset;
-}
+  .tg-widget-wrap {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    position: relative;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.btn-tg:hover{
-    background:#38bdf8;
-    color:black;
-    transform:scale(1.12);
-    box-shadow:0 0 60px #38bdf8;
-}
+  .tg-widget-wrap::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+  }
 
-h2{
-    font-size:55px;
-    color:#38bdf8;
-}
+  /* Telegram widget iframe fix */
+  .tg-widget-wrap iframe {
+    border-radius: 12px;
+    max-width: 100% !important;
+  }
 
-.features{
-    display:flex;
-    justify-content:center;
-    gap:25px;
-    flex-wrap:wrap;
-    margin-top:40px;
-}
+  .tg-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    color: rgba(0,212,255,0.25);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+  }
 
-.card{
-    width:320px;
-    padding:35px;
-    font-size:20px;
-    background:rgba(255,255,255,0.06);
-    border-radius:20px;
-    backdrop-filter:blur(12px);
-    transition:.4s;
-    opacity:0;
-    transform:translateY(40px);
-}
+  .tg-placeholder svg { opacity: 0.3; }
 
-.card.show{
-    opacity:1;
-    transform:translateY(0);
-}
-
-.card:hover{
-    transform:translateY(-15px) scale(1.05);
-    box-shadow:0 0 35px #38bdf8;
-}
-
-.text-block{
-    max-width:900px;
-    margin:25px auto;
-    font-size:20px;
-    color:#cbd5f5;
-    opacity:0;
-    transform:translateY(40px);
-    transition:.6s;
-}
-
-.text-block.show{
-    opacity:1;
-    transform:translateY(0);
-}
+  /* Hide sidebars on narrow screens */
+  @media (max-width: 1300px) {
+    .sidebar { display: none; }
+  }
 </style>
 </head>
-
 <body>
+<div class="grid-bg"></div>
+<div class="page-layout">
 
-<canvas id="bg"></canvas>
+<!-- LEFT SIDEBAR -->
+<div class="sidebar" id="sidebar-left">
+  <div class="sidebar-label">реклама</div>
+  <div class="tg-widget-wrap" id="tg-left"></div>
+</div>
 
-<header>
-    <div class="logo">MAGIC INJECTOR</div>
-</header>
-
-<section class="hero">
-    <h1>ROBLOX INJECTOR</h1>
-    <p>Современный инжектор нового поколения, тебе он точно зайдет!</p>
-
-    <div class="btn-group">
-        <a href="https://YOUR-DOWNLOAD-LINK.com" class="btn btn-download">СКАЧАТЬ</a>
-        <a href="https://t.me/YOUR_TELEGRAM" target="_blank" class="btn btn-tg">TELEGRAM</a>
+<div class="wrapper">
+  <div class="header">
+    <div class="logo">Crystal Blast</div>
+    <div class="tagline">Геометрический пазл</div>
+  </div>
+  <div class="scores-row">
+    <div class="score-card">
+      <div class="score-label">Очки</div>
+      <div class="score-value" id="scoreVal">0</div>
     </div>
-</section>
-
-<section>
-    <h2>Преимущества</h2>
-    <div class="features">
-        <div class="card">⚡ Максимальная скорость</div>
-        <div class="card">🔒 Стабильная работа</div>
-        <div class="card">🎯 Удобство использования</div>
+    <div class="score-card best">
+      <div class="score-label">Рекорд</div>
+      <div class="score-value" id="bestVal">0</div>
     </div>
-</section>
+  </div>
+  <div class="chain-bar"><div class="chain-fill" id="chainFill"></div></div>
+  <div class="board-container">
+    <div class="board-glow"></div>
+    <div id="board"></div>
+  </div>
+  <div class="pieces-area" id="piecesArea"></div>
+</div><!-- end .wrapper -->
+
+<!-- RIGHT SIDEBAR -->
+<div class="sidebar" id="sidebar-right">
+  <div class="sidebar-label">реклама</div>
+  <div class="tg-widget-wrap" id="tg-right"></div>
+</div>
+
+</div><!-- end .page-layout -->
+
+<div id="ghost"></div>
+
+<div class="overlay" id="overlay">
+  <div class="over-card">
+    <div class="over-title">GAME OVER</div>
+    <div class="over-sub">Нет места для блоков</div>
+    <div class="over-lbl">Ваш счёт</div>
+    <div class="over-score-val" id="overScore">0</div>
+    <div class="over-lbl b">Рекорд</div>
+    <div class="over-best-val" id="overBest">0</div>
+    <div class="new-record" id="newRecordMsg" style="display:none">★ НОВЫЙ РЕКОРД ★</div>
+    <button class="btn-restart" onclick="startGame()">ИГРАТЬ СНОВА</button>
+  </div>
+</div>
 
 <script>
-// ДОЖДЬ
-const canvas = document.getElementById('bg');
-const ctx = canvas.getContext('2d');
+// ── CONSTANTS ────────────────────────────────────────────
+const GRID = 9;
+const COLORS = ['c1','c2','c3','c4','c5','c6'];
+const GAP = 2; // px gap between cells (must match CSS)
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const ALL_SHAPES = [
+  [[1]],
+  [[1,1]], [[1],[1]],
+  [[1,1,1]], [[1],[1],[1]],
+  [[1,1],[1,0]], [[1,1],[0,1]],
+  [[1,0],[1,1]], [[0,1],[1,1]],
+  [[1,1,1,1]], [[1],[1],[1],[1]],
+  [[1,1],[1,1]],
+  [[1,1,1],[1,0,0]], [[1,1,1],[0,0,1]],
+  [[1,0,0],[1,1,1]], [[0,0,1],[1,1,1]],
+  [[0,1,0],[1,1,1]], [[1,1,1],[0,1,0]],
+  [[1,1,0],[0,1,1]], [[0,1,1],[1,1,0]],
+  [[1,1,1,1,1]], [[1],[1],[1],[1],[1]],
+  [[1,1,1],[1,0,0],[1,0,0]],
+  [[1,1,1],[0,0,1],[0,0,1]],
+  [[1,0,0],[1,0,0],[1,1,1]],
+  [[0,0,1],[0,0,1],[1,1,1]],
+  [[1,1,1,1],[1,0,0,0]],
+  [[1,1,1,1],[0,0,0,1]],
+  [[1,0,0,0],[1,1,1,1]],
+  [[0,0,0,1],[1,1,1,1]],
+];
 
-let rain = [];
+// ── STATE ────────────────────────────────────────────────
+let board = [];
+let score = 0;
+let best = parseInt(localStorage.getItem('cb_best') || '0');
+let pieces = [null,null,null];
+let chainCount = 0;
 
-for(let i=0;i<140;i++){
-    rain.push({
-        x: Math.random()*canvas.width,
-        y: Math.random()*canvas.height,
-        l: Math.random()*25+15,
-        s: Math.random()*4+2
-    });
+// Drag state
+let dragIdx = -1;
+let dragGrabRow = 0;  // which row in piece shape is "under cursor"
+let dragGrabCol = 0;  // which col
+let cellPx = 0;       // live pixel size of one board cell
+let lastAnchorR = -999, lastAnchorC = -999;
+let ghostActive = false;
+
+// ── BOARD ────────────────────────────────────────────────
+function initBoard() {
+  board = Array.from({length:GRID}, () => Array(GRID).fill(0));
 }
 
-function draw(){
-    ctx.fillStyle="rgba(2,6,23,0.25)";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    ctx.strokeStyle="#38bdf8";
-    rain.forEach(r=>{
-        ctx.beginPath();
-        ctx.moveTo(r.x,r.y);
-        ctx.lineTo(r.x,r.y+r.l);
-        ctx.stroke();
-        r.y+=r.s;
-
-        if(r.y>canvas.height){
-            r.y=-20;
-            r.x=Math.random()*canvas.width;
-        }
-    });
-
-    requestAnimationFrame(draw);
+function getCellEl(r, c) {
+  return document.querySelector(`#board [data-r="${r}"][data-c="${c}"]`);
 }
-draw();
 
-// СКРОЛЛ
-const observer = new IntersectionObserver(entries=>{
-    entries.forEach(entry=>{
-        if(entry.isIntersecting){
-            entry.target.classList.add('show');
-        }
+function measureCell() {
+  const el = document.querySelector('#board .cell');
+  if(el) cellPx = el.getBoundingClientRect().width;
+}
+
+function renderBoard() {
+  const b = document.getElementById('board');
+  b.innerHTML = '';
+  for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++) {
+    const d = document.createElement('div');
+    d.className = 'cell' + (board[r][c] ? ` filled ${board[r][c]}` : '');
+    d.dataset.r = r; d.dataset.c = c;
+    b.appendChild(d);
+  }
+  requestAnimationFrame(measureCell);
+}
+
+// ── SMART PIECE SELECTION ────────────────────────────────
+function canPlace(shape, r, c) {
+  return shape.every((row,dr) =>
+    row.every((v,dc) => !v || (
+      r+dr>=0 && r+dr<GRID && c+dc>=0 && c+dc<GRID && !board[r+dr][c+dc]
+    ))
+  );
+}
+
+function countFits(shape) {
+  let fits = 0, clears = 0;
+  const rows = shape.length, cols = shape[0].length;
+  for(let r=0;r<=GRID-rows;r++) {
+    for(let c=0;c<=GRID-cols;c++) {
+      if(!canPlace(shape,r,c)) continue;
+      fits++;
+      // simulate
+      const tmp = board.map(row=>[...row]);
+      shape.forEach((row,dr)=>row.forEach((v,dc)=>{ if(v) tmp[r+dr][c+dc]=1; }));
+      for(let rr=0;rr<GRID;rr++) if(tmp[rr].every(v=>v)) clears+=3;
+      for(let cc=0;cc<GRID;cc++) if(tmp.map(row=>row[cc]).every(v=>v)) clears+=3;
+    }
+  }
+  return { fits, clears };
+}
+
+function pickSmartShape() {
+  const fillRatio = board.flat().filter(v=>v).length / (GRID*GRID);
+  // As board fills up, prefer smaller pieces
+  const maxCells = fillRatio > 0.65 ? 3 : fillRatio > 0.4 ? 4 : 5;
+
+  const candidates = ALL_SHAPES.filter(s => s.flat().filter(v=>v).length <= maxCells);
+
+  const scored = candidates.map(s => {
+    const { fits, clears } = countFits(s);
+    const cells = s.flat().filter(v=>v).length;
+    // Reward: many placement options + line clears + moderate size
+    const score = fits * 2 + clears + (fillRatio > 0.4 ? (6 - cells) : cells);
+    return { shape: s, score: score + Math.random() * 2.5 };
+  }).filter(x => x.score > 0);
+
+  if(!scored.length) return [[1]];
+
+  scored.sort((a,b) => b.score - a.score);
+  // Pick randomly from top third — not always the best, to keep variety
+  const top = Math.max(2, Math.floor(scored.length * 0.35));
+  return scored[Math.floor(Math.random() * top)].shape;
+}
+
+function spawnPieces() {
+  for(let i=0;i<3;i++) {
+    if(!pieces[i]) {
+      const shape = pickSmartShape();
+      const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+      pieces[i] = { shape, color };
+    }
+  }
+  renderPieces();
+}
+
+// ── PIECES RENDER ────────────────────────────────────────
+function makePGrid(shape, color, px) {
+  const rows = shape.length, cols = shape[0].length;
+  const g = document.createElement('div');
+  g.className = 'p-grid';
+  g.style.gridTemplateColumns = `repeat(${cols},${px}px)`;
+  g.style.gridTemplateRows = `repeat(${rows},${px}px)`;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) {
+    const d = document.createElement('div');
+    const f = shape[r][c];
+    d.className = 'p-cell ' + (f ? `filled ${color}` : 'empty');
+    d.style.width = px+'px'; d.style.height = px+'px';
+    g.appendChild(d);
+  }
+  return g;
+}
+
+function renderPieces() {
+  const area = document.getElementById('piecesArea');
+  area.innerHTML = '';
+  for(let i=0;i<3;i++) {
+    const slot = document.createElement('div');
+    slot.className = 'piece-slot' + (pieces[i] ? '' : ' used');
+    slot.dataset.idx = i;
+    if(pieces[i]) {
+      const maxDim = Math.max(pieces[i].shape.length, pieces[i].shape[0].length);
+      const px = Math.min(18, Math.floor(68 / maxDim));
+      slot.appendChild(makePGrid(pieces[i].shape, pieces[i].color, px));
+      slot.addEventListener('mousedown', e => beginDrag(e, i));
+      slot.addEventListener('touchstart', e => beginDragTouch(e, i), {passive:false});
+    }
+    area.appendChild(slot);
+  }
+}
+
+// ── GHOST ────────────────────────────────────────────────
+function buildGhost(piece) {
+  measureCell();
+  const ghost = document.getElementById('ghost');
+  ghost.innerHTML = '';
+  const rows = piece.shape.length, cols = piece.shape[0].length;
+  const g = document.createElement('div');
+  g.className = 'p-grid';
+  g.style.gridTemplateColumns = `repeat(${cols},${cellPx}px)`;
+  g.style.gridTemplateRows = `repeat(${rows},${cellPx}px)`;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) {
+    const d = document.createElement('div');
+    const f = piece.shape[r][c];
+    d.className = 'p-cell ' + (f ? `filled ${piece.color}` : 'empty');
+    d.style.width = cellPx+'px'; d.style.height = cellPx+'px';
+    g.appendChild(d);
+  }
+  ghost.appendChild(g);
+  ghost.style.display = 'block';
+  ghostActive = true;
+}
+
+function placeGhost(cx, cy) {
+  if(!ghostActive) return;
+  const ghost = document.getElementById('ghost');
+  // Offset: the grab cell (dragGrabRow, dragGrabCol) aligns with cursor
+  const step = cellPx + GAP;
+  const ox = dragGrabCol * step;
+  const oy = dragGrabRow * step;
+  ghost.style.left = (cx - ox - cellPx/2) + 'px';
+  ghost.style.top  = (cy - oy - cellPx/2) + 'px';
+}
+
+function hideGhostEl() {
+  document.getElementById('ghost').style.display = 'none';
+  ghostActive = false;
+}
+
+// ── HIGHLIGHT ────────────────────────────────────────────
+function clearHighlights() {
+  document.querySelectorAll('.hl-valid,.hl-invalid,.hl-overlay').forEach(el =>
+    el.classList.remove('hl-valid','hl-invalid','hl-overlay')
+  );
+}
+
+function showHighlight(anchorR, anchorC) {
+  clearHighlights();
+  if(dragIdx < 0 || !pieces[dragIdx]) return;
+  const { shape } = pieces[dragIdx];
+  const valid = canPlace(shape, anchorR, anchorC);
+  shape.forEach((row,dr) => row.forEach((v,dc) => {
+    if(!v) return;
+    const tr = anchorR+dr, tc = anchorC+dc;
+    if(tr<0||tr>=GRID||tc<0||tc>=GRID) return;
+    const el = getCellEl(tr,tc);
+    if(!el) return;
+    if(!valid) el.classList.add('hl-invalid');
+    else if(board[tr][tc]) el.classList.add('hl-overlay');
+    else el.classList.add('hl-valid');
+  }));
+}
+
+// ── COORDINATE HELPER ────────────────────────────────────
+// Given screen pos, find which board cell (r,c) is under it
+function screenToBoard(x, y) {
+  // Temporarily hide ghost so hit-test works
+  const ghost = document.getElementById('ghost');
+  const wasVisible = ghost.style.display !== 'none';
+  if(wasVisible) ghost.style.display = 'none';
+  const el = document.elementFromPoint(x, y);
+  if(wasVisible) ghost.style.display = 'block';
+  if(!el) return null;
+  const cell = el.closest?.('.cell');
+  if(!cell) return null;
+  return { r: parseInt(cell.dataset.r), c: parseInt(cell.dataset.c) };
+}
+
+// From screen pos, compute anchor top-left for the piece
+function getAnchor(x, y) {
+  const cell = screenToBoard(x, y);
+  if(!cell) return null;
+  return { r: cell.r - dragGrabRow, c: cell.c - dragGrabCol };
+}
+
+// ── DRAG — MOUSE ─────────────────────────────────────────
+function beginDrag(e, idx) {
+  if(!pieces[idx]) return;
+  e.preventDefault();
+  dragIdx = idx;
+  const p = pieces[idx];
+  // Grab center of piece
+  dragGrabRow = Math.floor(p.shape.length / 2);
+  dragGrabCol = Math.floor(p.shape[0].length / 2);
+
+  document.body.classList.add('dragging');
+  buildGhost(p);
+  placeGhost(e.clientX, e.clientY);
+
+  document.querySelectorAll('.piece-slot')[idx]?.classList.add('grabbing');
+
+  document.addEventListener('mousemove', onMM);
+  document.addEventListener('mouseup', onMU);
+}
+
+function onMM(e) {
+  if(dragIdx < 0) return;
+  placeGhost(e.clientX, e.clientY);
+  const anchor = getAnchor(e.clientX, e.clientY);
+  if(anchor) {
+    if(anchor.r !== lastAnchorR || anchor.c !== lastAnchorC) {
+      lastAnchorR = anchor.r; lastAnchorC = anchor.c;
+      showHighlight(anchor.r, anchor.c);
+    }
+  } else {
+    clearHighlights(); lastAnchorR = lastAnchorC = -999;
+  }
+}
+
+function onMU(e) {
+  document.removeEventListener('mousemove', onMM);
+  document.removeEventListener('mouseup', onMU);
+  document.body.classList.remove('dragging');
+  hideGhostEl();
+  clearHighlights();
+
+  const idx = dragIdx; dragIdx = -1;
+  lastAnchorR = lastAnchorC = -999;
+  document.querySelectorAll('.piece-slot')[idx]?.classList.remove('grabbing');
+
+  const anchor = getAnchor(e.clientX, e.clientY);
+  if(anchor) tryPlace(idx, anchor.r, anchor.c);
+}
+
+// ── DRAG — TOUCH ─────────────────────────────────────────
+function beginDragTouch(e, idx) {
+  if(!pieces[idx]) return;
+  e.preventDefault();
+  dragIdx = idx;
+  const p = pieces[idx];
+  dragGrabRow = Math.floor(p.shape.length / 2);
+  dragGrabCol = Math.floor(p.shape[0].length / 2);
+
+  const t = e.touches[0];
+  document.body.classList.add('dragging');
+  buildGhost(p);
+  placeGhost(t.clientX, t.clientY);
+
+  document.querySelectorAll('.piece-slot')[idx]?.classList.add('grabbing');
+
+  document.addEventListener('touchmove', onTM, {passive:false});
+  document.addEventListener('touchend', onTE, {passive:false});
+}
+
+function onTM(e) {
+  e.preventDefault();
+  if(dragIdx < 0) return;
+  const t = e.touches[0];
+  placeGhost(t.clientX, t.clientY);
+  const anchor = getAnchor(t.clientX, t.clientY);
+  if(anchor) {
+    if(anchor.r !== lastAnchorR || anchor.c !== lastAnchorC) {
+      lastAnchorR = anchor.r; lastAnchorC = anchor.c;
+      showHighlight(anchor.r, anchor.c);
+    }
+  } else {
+    clearHighlights(); lastAnchorR = lastAnchorC = -999;
+  }
+}
+
+function onTE(e) {
+  e.preventDefault();
+  document.removeEventListener('touchmove', onTM);
+  document.removeEventListener('touchend', onTE);
+  document.body.classList.remove('dragging');
+  hideGhostEl();
+  clearHighlights();
+
+  const idx = dragIdx; dragIdx = -1;
+  lastAnchorR = lastAnchorC = -999;
+  document.querySelectorAll('.piece-slot')[idx]?.classList.remove('grabbing');
+
+  const t = e.changedTouches[0];
+  const anchor = getAnchor(t.clientX, t.clientY);
+  if(anchor) tryPlace(idx, anchor.r, anchor.c);
+}
+
+// ── PLACEMENT ────────────────────────────────────────────
+function tryPlace(idx, r, c) {
+  if(!pieces[idx]) return;
+  const piece = pieces[idx];
+  if(!canPlace(piece.shape, r, c)) {
+    const boardEl = document.getElementById('board');
+    boardEl.style.animation = 'shake 0.3s ease';
+    setTimeout(() => boardEl.style.animation = '', 350);
+    return;
+  }
+  piece.shape.forEach((row,dr) => row.forEach((v,dc) => {
+    if(v) board[r+dr][c+dc] = piece.color;
+  }));
+  addScore(piece.shape.flat().filter(v=>v).length * 10);
+  pieces[idx] = null;
+  renderBoard();
+
+  setTimeout(() => {
+    const cleared = clearLines();
+    if(!cleared) chainCount = 0;
+    renderPieces();
+    if(pieces.every(p=>p===null)) { chainCount = 0; spawnPieces(); }
+    checkGameOver();
+  }, 60);
+}
+
+// ── LINE CLEARING ────────────────────────────────────────
+function clearLines() {
+  const fullRows = [], fullCols = [];
+  for(let r=0;r<GRID;r++) if(board[r].every(v=>v)) fullRows.push(r);
+  for(let c=0;c<GRID;c++) if(board.map(row=>row[c]).every(v=>v)) fullCols.push(c);
+  if(!fullRows.length && !fullCols.length) return false;
+
+  const toClear = new Set();
+  fullRows.forEach(r=>{ for(let c=0;c<GRID;c++) toClear.add(`${r},${c}`); });
+  fullCols.forEach(c=>{ for(let r=0;r<GRID;r++) toClear.add(`${r},${c}`); });
+
+  toClear.forEach(key => {
+    const [r,c] = key.split(',').map(Number);
+    const el = getCellEl(r,c);
+    if(el) { el.classList.add('clearing'); spawnParticles(el); }
+  });
+
+  const lineCount = fullRows.length + fullCols.length;
+  chainCount++;
+  addScore(lineCount * GRID * 100 * Math.max(1, chainCount));
+  if(chainCount > 1 || lineCount > 1) showCombo(lineCount, chainCount);
+  updateChainBar();
+
+  setTimeout(() => {
+    toClear.forEach(key => {
+      const [r,c] = key.split(',').map(Number);
+      board[r][c] = 0;
     });
-});
+    renderBoard();
+  }, 450);
+  return true;
+}
 
-document.querySelectorAll('.card, .text-block').forEach(el=>{
-    observer.observe(el);
-});
+// ── SCORE ────────────────────────────────────────────────
+function addScore(pts) {
+  score += pts;
+  const sv = document.getElementById('scoreVal');
+  sv.textContent = score;
+  sv.classList.remove('bump'); void sv.offsetWidth; sv.classList.add('bump');
+  if(score > best) {
+    best = score;
+    localStorage.setItem('cb_best', best);
+    document.getElementById('bestVal').textContent = best;
+  }
+}
+
+function updateChainBar() {
+  document.getElementById('chainFill').style.width = Math.min(100, chainCount*20) + '%';
+}
+
+// ── VFX ──────────────────────────────────────────────────
+function showCombo(lines, chain) {
+  const el = document.createElement('div');
+  el.className = 'combo-pop';
+  const bx = document.getElementById('board').getBoundingClientRect();
+  el.style.left = (bx.left + bx.width/2) + 'px';
+  el.style.top = (bx.top + bx.height/2) + 'px';
+  el.textContent = chain > 1 ? `×${chain} CHAIN!` : `×${lines} LINES!`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function spawnParticles(el) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+  const pal = ['#00d4ff','#9b59ff','#ff3dac','#00ff9d','#ffe600'];
+  for(let i=0;i<5;i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const a = (Math.PI*2/5)*i + Math.random()*0.7;
+    const d = 25 + Math.random()*45;
+    const sz = 3 + Math.random()*4;
+    p.style.cssText = `left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;background:${pal[Math.floor(Math.random()*5)]};--tx:${Math.cos(a)*d}px;--ty:${Math.sin(a)*d}px;`;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(), 700);
+  }
+}
+
+// ── GAME OVER ────────────────────────────────────────────
+function checkGameOver() {
+  const avail = pieces.filter(p=>p!==null);
+  if(!avail.length) return;
+  const canAny = avail.some(p =>
+    [...Array(GRID)].some((_,r)=>[...Array(GRID)].some((_,c)=>canPlace(p.shape,r,c)))
+  );
+  if(!canAny) setTimeout(gameOver, 300);
+}
+
+function gameOver() {
+  document.getElementById('overScore').textContent = score;
+  document.getElementById('overBest').textContent = best;
+  document.getElementById('newRecordMsg').style.display = (score>0 && score>=best) ? 'block' : 'none';
+  document.getElementById('overlay').classList.add('show');
+}
+
+// ── START ────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('overlay').classList.remove('show');
+  score = 0; chainCount = 0; pieces = [null,null,null];
+  document.getElementById('scoreVal').textContent = '0';
+  document.getElementById('bestVal').textContent = best;
+  document.getElementById('chainFill').style.width = '0%';
+  initBoard(); renderBoard(); spawnPieces();
+}
+
+window.addEventListener('resize', measureCell);
+
+// ═══════════════════════════════════════════════════════════
+//  ★ TELEGRAM WIDGET CONFIG ★
+//  Формат ссылки: https://t.me/ИМЯ_КАНАЛА/НОМЕР_ПОСТА
+//  Примеры:
+//    https://t.me/durov/1
+//    https://t.me/telegram/1
+// ═══════════════════════════════════════════════════════════
+const TG_POST_LEFT  = 'https://t.me/lolz_hot/36';  // ← замени на свой пост (левый виджет)
+const TG_POST_RIGHT = 'https://t.me/ootmyvv/4';     // ← замени на свой пост (правый виджет)
+
+function parseTgUrl(url) {
+  // Accepts: https://t.me/channel/123  or  t.me/channel/123
+  try {
+    const clean = url.replace(/^https?:\/\//, '').replace(/^t\.me\//, '');
+    const parts = clean.split('/');
+    if(parts.length >= 2) return { channel: parts[0], post: parts[1] };
+  } catch(e) {}
+  return null;
+}
+
+function loadTgWidget(containerId, postUrl) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+
+  const parsed = parseTgUrl(postUrl);
+  if(!parsed) {
+    container.innerHTML = `<div class="tg-placeholder">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.75a2.25 2.25 0 0 0 .126 4.238l3.696 1.23 1.525 4.695a.75.75 0 0 0 1.334.194L12.5 17.5l4.253 3.19a2.25 2.25 0 0 0 3.497-1.394l2.5-14.25a2.25 2.25 0 0 0-1.552-2.613z"/></svg>
+      Неверная ссылка
+    </div>`;
+    return;
+  }
+
+  // Show loading placeholder
+  container.innerHTML = `<div class="tg-placeholder">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.75a2.25 2.25 0 0 0 .126 4.238l3.696 1.23 1.525 4.695a.75.75 0 0 0 1.334.194L12.5 17.5l4.253 3.19a2.25 2.25 0 0 0 3.497-1.394l2.5-14.25a2.25 2.25 0 0 0-1.552-2.613z"/></svg>
+    Загрузка...
+  </div>`;
+
+  // Build Telegram embed post URL
+  const embedUrl = `https://t.me/${parsed.channel}/${parsed.post}?embed=1&color=1a1f2e&dark=1&userpic=true`;
+
+  const iframe = document.createElement('iframe');
+  iframe.src = embedUrl;
+  iframe.width = '100%';
+  iframe.height = '240';
+  iframe.frameBorder = '0';
+  iframe.scrolling = 'no';
+  iframe.style.cssText = 'border:none;width:100%;display:block;border-radius:12px;';
+  iframe.onload = () => { container.innerHTML = ''; container.appendChild(iframe); };
+  iframe.onerror = () => {
+    container.innerHTML = `<div class="tg-placeholder">Не удалось загрузить пост</div>`;
+  };
+
+  // Fallback: also try official widget script approach
+  // Use script tag method (more reliable)
+  container.innerHTML = '';
+  const scriptWrap = document.createElement('div');
+  scriptWrap.style.width = '100%';
+  scriptWrap.style.padding = '8px';
+
+  const script = document.createElement('script');
+  script.setAttribute('async', '');
+  script.setAttribute('src', 'https://telegram.org/js/telegram-widget.js?22');
+  script.setAttribute('data-telegram-post', `${parsed.channel}/${parsed.post}`);
+  script.setAttribute('data-width', '100%');
+  script.setAttribute('data-color', '1A2533');
+  script.setAttribute('data-dark', '1');
+  script.setAttribute('data-dark-color', '00D4FF');
+  script.setAttribute('data-userpic', 'true');
+
+  scriptWrap.appendChild(script);
+  container.appendChild(scriptWrap);
+}
+
+// Init widgets
+loadTgWidget('tg-left',  TG_POST_LEFT);
+loadTgWidget('tg-right', TG_POST_RIGHT);
+
+startGame();
 </script>
-
 </body>
 </html>
